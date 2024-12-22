@@ -1,143 +1,166 @@
-from flask import Blueprint, request, jsonify
-import sqlite3
+from flask import Blueprint, jsonify, request
+from db import get_connection
+import json
 
-tasks_blueprint = Blueprint("tasks", __name__)
+tasks_blueprint = Blueprint('tasks', __name__)
 
-DB_PATH = "game_state.db"
+# Fetch all tasks available to a player
+@tasks_blueprint.route('/api/tasks/<int:player_id>', methods=['GET'])
+def get_available_tasks(player_id):
+    """Fetch all tasks available to the player based on their traits and resources."""
+    conn = get_connection()
+    cursor = conn.cursor()
 
-def get_connection():
-    """Establish a connection to the SQLite database."""
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
+    # Fetch player data
+    player = cursor.execute("""
+        SELECT resources FROM players WHERE id = ?
+    """, (player_id,)).fetchone()
 
-@tasks_blueprint.route("/assign_task", methods=["POST"])
+    if not player:
+        conn.close()
+        return jsonify({"error": "Player not found."}), 404
+
+    resources = json.loads(player["resources"])
+
+    # Fetch all tasks
+    tasks = cursor.execute("SELECT * FROM tasks").fetchall()
+
+    # Filter tasks based on player resources
+    available_tasks = []
+    for task in tasks:
+        task_resources = json.loads(task["required_resources"])
+        if all(resources.get(resource, 0) >= amount for resource, amount in task_resources.items()):
+            available_tasks.append({
+                "id": task["id"],
+                "name": task["name"],
+                "description": task["description"],
+                "required_resources": task_resources,
+                "rewards": json.loads(task["rewards"]),
+                "duration": task["duration"]
+            })
+
+    conn.close()
+    return jsonify({"tasks": available_tasks})
+
+# Assign a task to a player
+@tasks_blueprint.route('/api/tasks/assign', methods=['POST'])
 def assign_task():
-    """Assign a task."""
+    """Assign a task to the player, deduct resources, and start the task."""
+    data = request.json
+    player_id = data["player_id"]
+    task_id = data["task_id"]
+
     conn = get_connection()
     cursor = conn.cursor()
 
-    # Extract data from the request
-    task_name = request.json.get("task")
-    room = request.json.get("room")
-    ticks_required = request.json.get("ticks_required", 1)
+    # Fetch player resources
+    player = cursor.execute("""
+        SELECT resources FROM players WHERE id = ?
+    """, (player_id,)).fetchone()
 
-    if not task_name or not room:
+    if not player:
         conn.close()
-        return jsonify({"error": "Task name and room are required."}), 400
+        return jsonify({"error": "Player not found."}), 404
 
-    # Deduct resources (example logic, customize as needed)
-    cursor.execute("SELECT amount FROM resources WHERE name = 'energy'")
-    energy = cursor.fetchone()["amount"]
-    if energy < 10:  # Example cost
+    resources = json.loads(player["resources"])
+
+    # Fetch task details
+    task = cursor.execute("""
+        SELECT * FROM tasks WHERE id = ?
+    """, (task_id,)).fetchone()
+
+    if not task:
         conn.close()
-        return jsonify({"error": "Not enough energy to assign the task."}), 400
+        return jsonify({"error": "Task not found."}), 404
 
-    cursor.execute("UPDATE resources SET amount = amount - 10 WHERE name = 'energy'")
+    task_resources = json.loads(task["required_resources"])
 
-    # Add the task to the tasks table
+    # Check if player has sufficient resources
+    if not all(resources.get(resource, 0) >= amount for resource, amount in task_resources.items()):
+        conn.close()
+        return jsonify({"error": "Insufficient resources for this task."}), 400
+
+    # Deduct resources from player
+    for resource, amount in task_resources.items():
+        resources[resource] -= amount
+
     cursor.execute("""
-        INSERT INTO tasks (name, room, ticks_remaining)
+        UPDATE players
+        SET resources = ?
+        WHERE id = ?
+    """, (json.dumps(resources), player_id))
+
+    # Start the task
+    cursor.execute("""
+        INSERT INTO active_tasks (player_id, task_id, ticks_remaining)
         VALUES (?, ?, ?)
-    """, (task_name, room, ticks_required))
-    conn.commit()
-    conn.close()
-
-    return jsonify({"message": f"Task '{task_name}' assigned to {room} for {ticks_required} ticks."}), 201
-
-@tasks_blueprint.route("/clear_alerts", methods=["POST"])
-def clear_alerts():
-    """Clear all alerts."""
-    conn = get_connection()
-    cursor = conn.cursor()
-
-    cursor.execute("DELETE FROM alerts")
-    conn.commit()
-    conn.close()
-
-    return jsonify({"message": "All alerts cleared!"}), 200
-
-@tasks_blueprint.route("/tasks", methods=["GET"])
-def get_tasks():
-    """Get all active tasks."""
-    conn = get_connection()
-    cursor = conn.cursor()
-
-    cursor.execute("SELECT id, name, room, ticks_remaining FROM tasks")
-    tasks = [dict(row) for row in cursor.fetchall()]
-    conn.close()
-
-    return jsonify({"tasks": tasks})
-
-@tasks_blueprint.route("/update_ticks", methods=["POST"])
-def update_ticks():
-    """Update task ticks (process a game tick)."""
-    conn = get_connection()
-    cursor = conn.cursor()
-
-    cursor.execute("""
-        UPDATE tasks
-        SET ticks_remaining = ticks_remaining - 1
-        WHERE ticks_remaining > 0
-    """)
-
-    cursor.execute("""
-        DELETE FROM tasks
-        WHERE ticks_remaining <= 0
-    """)
+    """, (player_id, task_id, task["duration"]))
 
     conn.commit()
     conn.close()
 
-    return jsonify({"message": "Task ticks updated."}), 200
+    return jsonify({"message": f"Task '{task['name']}' assigned successfully!"})
 
-@tasks_blueprint.route("/initialize_tasks", methods=["POST"])
-def initialize_tasks():
-    """Initialize or reset tasks in the database."""
+# Fetch active tasks for a player
+@tasks_blueprint.route('/api/tasks/active/<int:player_id>', methods=['GET'])
+def get_active_tasks(player_id):
+    """Fetch all active tasks for a player."""
     conn = get_connection()
     cursor = conn.cursor()
 
-    # Clear existing tasks
-    cursor.execute("DELETE FROM tasks")
+    # Fetch active tasks for the player
+    active_tasks = cursor.execute("""
+        SELECT at.id, t.name, at.ticks_remaining
+        FROM active_tasks at
+        JOIN tasks t ON at.task_id = t.id
+        WHERE at.player_id = ?
+    """, (player_id,)).fetchall()
 
-    # Add default tasks (example tasks, customize as needed)
-    default_tasks = [
-        {"name": "Repair Comms Hub", "room": "Control Room", "ticks_remaining": 5},
-        {"name": "Organize Storage", "room": "Storage Room", "ticks_remaining": 3},
-    ]
-    for task in default_tasks:
+    conn.close()
+    return jsonify({"active_tasks": active_tasks})
+
+# Complete tasks at the end of their duration
+@tasks_blueprint.route('/api/tasks/complete', methods=['POST'])
+def complete_tasks():
+    """Complete tasks with 0 ticks remaining and grant rewards to the player."""
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    # Fetch tasks that are ready to be completed
+    completed_tasks = cursor.execute("""
+        SELECT at.id as active_task_id, at.player_id, t.rewards
+        FROM active_tasks at
+        JOIN tasks t ON at.task_id = t.id
+        WHERE at.ticks_remaining = 0
+    """).fetchall()
+
+    for task in completed_tasks:
+        player_id = task["player_id"]
+        rewards = json.loads(task["rewards"])
+
+        # Fetch player resources
+        player = cursor.execute("""
+            SELECT resources FROM players WHERE id = ?
+        """, (player_id,)).fetchone()
+
+        resources = json.loads(player["resources"])
+
+        # Grant rewards to the player
+        for resource, amount in rewards.items():
+            resources[resource] = resources.get(resource, 0) + amount
+
         cursor.execute("""
-            INSERT INTO tasks (name, room, ticks_remaining)
-            VALUES (?, ?, ?)
-        """, (task["name"], task["room"], task["ticks_remaining"]))
+            UPDATE players
+            SET resources = ?
+            WHERE id = ?
+        """, (json.dumps(resources), player_id))
+
+        # Remove the completed task
+        cursor.execute("""
+            DELETE FROM active_tasks WHERE id = ?
+        """, (task["active_task_id"],))
 
     conn.commit()
     conn.close()
 
-    return jsonify({"message": "Tasks initialized."}), 200
-
-@tasks_blueprint.route("/state", methods=["GET"])
-def get_game_state():
-    """Retrieve the current game state."""
-    conn = get_connection()
-    cursor = conn.cursor()
-
-    # Fetch resources
-    cursor.execute("SELECT name, amount FROM resources")
-    resources = {row["name"]: row["amount"] for row in cursor.fetchall()}
-
-    # Fetch tasks
-    cursor.execute("SELECT name, room, ticks_remaining FROM tasks")
-    tasks = [dict(row) for row in cursor.fetchall()]
-
-    # Fetch alerts
-    cursor.execute("SELECT message FROM alerts")
-    alerts = [row["message"] for row in cursor.fetchall()]
-
-    conn.close()
-
-    return jsonify({
-        "resources": resources,
-        "tasks": tasks,
-        "alerts": alerts
-    })
+    return jsonify({"message": "All completed tasks have been processed."})

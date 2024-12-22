@@ -1,40 +1,28 @@
 from flask import Flask
-from flask_login import LoginManager
-from routes.auth import auth_blueprint
-from routes.tasks import tasks_blueprint
+from routes.api import api_blueprint
 from routes.map import map_blueprint
-from db import initialize_database, seed_database
+from routes.tasks import tasks_blueprint
+from routes.auth import auth_blueprint
+from routes.index import index_blueprint
+from db import initialize_database
 
-# Initialize the Flask app
+# Initialize Flask app
 app = Flask(__name__)
-app.secret_key = "supersecretkey"  # Replace with a strong, secure key in production
 
-# Initialize Flask-Login
-login_manager = LoginManager()
-login_manager.init_app(app)
-login_manager.login_view = "auth.login"  # Redirect to login if authentication is required
+# Set secret key for session management
+app.secret_key = 'your_secret_key'
 
-# Register Blueprints
-app.register_blueprint(auth_blueprint, url_prefix="/auth")
-app.register_blueprint(tasks_blueprint, url_prefix="/api")
-app.register_blueprint(map_blueprint, url_prefix="/api/map")
+# Register blueprints
+app.register_blueprint(api_blueprint)
+app.register_blueprint(map_blueprint)
+app.register_blueprint(tasks_blueprint)
+app.register_blueprint(auth_blueprint)
+app.register_blueprint(index_blueprint)
 
-
-# Initialize and seed the database
-initialize_database()
-seed_database()
-
-# Root route to serve the main HTML page
-@app.route("/")
-def index():
-    """Serve the main HTML page."""
-    return app.send_static_file("index.html")
-
-# Route to serve the favicon
-@app.route("/favicon.ico")
-def favicon():
-    """Serve the favicon."""
-    return app.send_static_file("favicon.ico")
+# Initialize the database
+with app.app_context():
+    initialize_database()
 
 if __name__ == "__main__":
+    # Run the Flask app
     app.run(debug=True)

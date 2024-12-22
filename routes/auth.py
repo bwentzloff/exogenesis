@@ -1,83 +1,80 @@
 from flask import Blueprint, request, jsonify, session
-from flask_bcrypt import Bcrypt
-from flask_login import LoginManager, UserMixin, login_user, logout_user, current_user
-import sqlite3
+from werkzeug.security import generate_password_hash, check_password_hash
+from db import get_connection
 
-auth_blueprint = Blueprint("auth", __name__)
-bcrypt = Bcrypt()
-login_manager = LoginManager()
+auth_blueprint = Blueprint('auth', __name__)
 
-DB_PATH = "game_state.db"
-
-def get_connection():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
-
-class User(UserMixin):
-    def __init__(self, id, username):
-        self.id = id
-        self.username = username
-
-@login_manager.user_loader
-def load_user(user_id):
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT id, username FROM users WHERE id = ?", (user_id,))
-    user_data = cursor.fetchone()
-    conn.close()
-
-    if user_data:
-        return User(user_data["id"], user_data["username"])
-    return None
-
-@auth_blueprint.route("/register", methods=["POST"])
-def register():
+# User Registration
+@auth_blueprint.route('/api/auth/register', methods=['POST'])
+def register_user():
     data = request.json
-    username = data.get("username")
-    password = data.get("password")
+    username = data.get('username')
+    password = data.get('password')
 
     if not username or not password:
         return jsonify({"error": "Username and password are required."}), 400
 
-    password_hash = bcrypt.generate_password_hash(password).decode("utf-8")
+    hashed_password = generate_password_hash(password)
 
     conn = get_connection()
     cursor = conn.cursor()
 
-    try:
-        cursor.execute("INSERT INTO users (username, password_hash) VALUES (?, ?)", (username, password_hash))
-        conn.commit()
-    except sqlite3.IntegrityError:
+    # Check if username already exists
+    existing_user = cursor.execute("""
+        SELECT * FROM users WHERE username = ?
+    """, (username,)).fetchone()
+
+    if existing_user:
         conn.close()
-        return jsonify({"error": "Username already exists."}), 400
+        return jsonify({"error": "Username already exists."}), 409
 
+    # Insert new user
+    cursor.execute("""
+        INSERT INTO users (username, password)
+        VALUES (?, ?)
+    """, (username, hashed_password))
+    conn.commit()
     conn.close()
-    return jsonify({"message": "User registered successfully."}), 201
 
-@auth_blueprint.route("/login", methods=["POST"])
-def login():
+    return jsonify({"message": "User registered successfully!"}), 201
+
+# User Login
+@auth_blueprint.route('/api/auth/login', methods=['POST'])
+def login_user():
     data = request.json
-    username = data.get("username")
-    password = data.get("password")
+    username = data.get('username')
+    password = data.get('password')
 
     if not username or not password:
         return jsonify({"error": "Username and password are required."}), 400
 
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT id, username, password_hash FROM users WHERE username = ?", (username,))
-    user_data = cursor.fetchone()
+
+    # Fetch user from the database
+    user = cursor.execute("""
+        SELECT * FROM users WHERE username = ?
+    """, (username,)).fetchone()
+
     conn.close()
 
-    if user_data and bcrypt.check_password_hash(user_data["password_hash"], password):
-        user = User(user_data["id"], user_data["username"])
-        login_user(user)
-        return jsonify({"message": "Login successful."}), 200
+    if user and check_password_hash(user["password"], password):
+        # Set session
+        session['user_id'] = user['id']
+        return jsonify({"message": "Login successful!"}), 200
 
-    return jsonify({"error": "Invalid credentials."}), 401
+    return jsonify({"error": "Invalid username or password."}), 401
 
-@auth_blueprint.route("/logout", methods=["POST"])
-def logout():
-    logout_user()
-    return jsonify({"message": "Logged out successfully."}), 200
+# User Logout
+@auth_blueprint.route('/api/auth/logout', methods=['POST'])
+def logout_user():
+    session.clear()
+    return jsonify({"message": "Logout successful!"}), 200
+
+# Check Current Session
+@auth_blueprint.route('/api/auth/session', methods=['GET'])
+def check_session():
+    user_id = session.get('user_id')
+    if user_id:
+        return jsonify({"user_id": user_id}), 200
+    return jsonify({"error": "No active session."}), 401

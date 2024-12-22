@@ -1,6 +1,6 @@
 import sqlite3
 
-DB_PATH = "game_state.db"
+DB_PATH = "game.db"
 
 def get_connection():
     """Get a connection to the SQLite database."""
