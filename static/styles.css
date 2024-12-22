@@ -1,0 +1,135 @@
+/* Celestial Body Styles */
+.celestial-body {
+    position: absolute;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    text-align: center;
+    line-height: 40px;
+    color: white;
+    font-size: 0.8em;
+    cursor: pointer;
+    transition: transform 0.2s ease, background-color 0.2s ease;
+}
+
+.celestial-body.explored {
+    background-color: #00ffcc;
+    box-shadow: 0 0 10px #00ffcc;
+}
+
+.celestial-body.unexplored {
+    background-color: #666;
+    box-shadow: 0 0 5px #333;
+}
+
+.celestial-body:hover {
+    transform: scale(1.2);
+}
+
+/* Alerts Styling */
+.alert {
+    padding: 10px;
+    margin: 5px 0;
+    border-radius: 5px;
+    animation: fadeIn 0.5s ease;
+}
+
+.alert.info {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.alert.warning {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Task Button Styles */
+button.task-button {
+    background-color: #007bff;
+    color: white;
+    padding: 10px 15px;
+    margin: 5px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: transform 0.2s ease, background-color 0.2s ease;
+}
+
+button.task-button:hover {
+    transform: scale(1.1);
+    background-color: #0056b3;
+}
+
+button.task-button:active {
+    transform: scale(0.9);
+}
+
+/* General Page Layout */
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: #000;
+    color: #fff;
+    overflow: hidden;
+}
+
+header {
+    background-color: #1a1a1a;
+    padding: 20px;
+    text-align: center;
+}
+
+header h1 {
+    margin: 0;
+    font-size: 2em;
+}
+
+header p {
+    margin: 5px 0 0;
+    font-size: 1.2em;
+}
+
+#universe-map {
+    position: relative;
+    width: 100%;
+    height: 300px;
+    background-color: #111;
+    overflow: hidden;
+    border: 2px solid #333;
+    margin: 20px 0;
+}
+
+#task-interface,
+#dashboard {
+    margin: 20px;
+    padding: 10px;
+    border: 2px solid #333;
+    border-radius: 5px;
+    background-color: #1a1a1a;
+}
+
+#task-interface h2,
+#dashboard h2 {
+    margin: 0 0 10px;
+}
+
+footer {
+    background-color: #1a1a1a;
+    text-align: center;
+    padding: 10px;
+    margin-top: 20px;
+    font-size: 0.8em;
+}

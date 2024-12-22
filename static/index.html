@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exogenesis - Moon Base</title>
+    <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
+    <link rel="stylesheet" href="/static/styles.css">
+    <script src="/static/script.js" defer></script>
+</head>
+<body>
+    <header>
+        <h1>Exogenesis</h1>
+        <p>Moon Base Command Center</p>
+    </header>
+
+    <div id="universe-map">
+        <h2>Known Universe Map</h2>
+        <!-- Celestial bodies will be dynamically added here -->
+    </div>
+
+    <div id="task-interface">
+        <h2>Task Assignment</h2>
+        <button class="task-button" onclick="assignTask('Repair Comms Hub', 'Control Room', 3)">Repair Comms Hub</button>
+        <button class="task-button" onclick="assignTask('Genetic Experiment', 'Genetics Lab', 5)">Genetic Experiment</button>
+        <button class="task-button" onclick="assignTask('Organize Storage', 'Storage Room', 4)">Organize Storage</button>
+        <button class="task-button" onclick="assignTask('Send Signal', 'Comms Hub', 2)">Send Signal</button>
+        <button class="task-button" onclick="assignTask('Harvest Solar Energy', 'Energy Facility', 5)">Harvest Solar Energy</button>
+    </div>
+
+    <div id="dashboard">
+        <h2>Dashboard</h2>
+        <div>
+            <strong>Resources:</strong>
+            <div id="resources">Loading...</div>
+        </div>
+        <div>
+            <strong>Active Tasks:</strong>
+            <div id="active-tasks">No tasks assigned</div>
+        </div>
+        <div>
+            <strong>Alerts:</strong>
+            <div id="alerts">No alerts</div>
+        </div>
+        <button onclick="clearAlerts()">Clear Alerts</button>
+    </div>
+
+    <footer>
+        &copy; 2024 Exogenesis. All rights reserved.
+    </footer>
+</body>
+</html>
