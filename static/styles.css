@@ -1,3 +1,48 @@
+/* General Page Layout */
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: #000;
+    color: #fff;
+    overflow: hidden;
+}
+
+header {
+    background-color: #1a1a1a;
+    padding: 20px;
+    text-align: center;
+}
+
+header h1 {
+    margin: 0;
+    font-size: 2em;
+}
+
+header p {
+    margin: 5px 0 0;
+    font-size: 1.2em;
+}
+
+footer {
+    background-color: #1a1a1a;
+    text-align: center;
+    padding: 10px;
+    margin-top: 20px;
+    font-size: 0.8em;
+}
+
+/* Universe Map Styling */
+#universe-map {
+    position: relative;
+    width: 100%;
+    height: 300px;
+    background-color: #111;
+    overflow: hidden;
+    border: 2px solid #333;
+    margin: 20px 0;
+}
+
 /* Celestial Body Styles */
 .celestial-body {
     position: absolute;
@@ -24,6 +69,20 @@
 
 .celestial-body:hover {
     transform: scale(1.2);
+}
+
+.celestial-body.selected {
+    border: 2px solid #ffcc00;
+    box-shadow: 0 0 15px #ffcc00;
+}
+
+/* Connection Line Styles */
+.connection-line {
+    position: absolute;
+    height: 2px;
+    background-color: #fff;
+    transform-origin: top left;
+    z-index: -1;
 }
 
 /* Alerts Styling */
@@ -76,42 +135,60 @@ button.task-button:active {
     transform: scale(0.9);
 }
 
-/* General Page Layout */
-body {
-    font-family: Arial, sans-serif;
-    margin: 0;
-    padding: 0;
-    background-color: #000;
+button.task-button.clicked {
+    animation: pulse 0.4s;
+}
+
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.1);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+/* Task Completed Animation */
+.task-completed {
+    background-color: #28a745;
     color: #fff;
-    overflow: hidden;
+    animation: fadeOut 1s forwards;
 }
 
-header {
-    background-color: #1a1a1a;
-    padding: 20px;
-    text-align: center;
+@keyframes fadeOut {
+    0% {
+        opacity: 1;
+    }
+    100% {
+        opacity: 0;
+    }
 }
 
-header h1 {
-    margin: 0;
-    font-size: 2em;
+/* Resource Dashboard Styling */
+#resources div {
+    margin: 5px 0;
 }
 
-header p {
-    margin: 5px 0 0;
-    font-size: 1.2em;
+.resource-critical {
+    animation: flashRed 1s infinite;
 }
 
-#universe-map {
-    position: relative;
-    width: 100%;
-    height: 300px;
-    background-color: #111;
-    overflow: hidden;
-    border: 2px solid #333;
-    margin: 20px 0;
+@keyframes flashRed {
+    0% {
+        background-color: #721c24;
+    }
+    50% {
+        background-color: #f8d7da;
+    }
+    100% {
+        background-color: #721c24;
+    }
 }
 
+/* Dashboard and Task Interface */
 #task-interface,
 #dashboard {
     margin: 20px;
@@ -124,12 +201,4 @@ header p {
 #task-interface h2,
 #dashboard h2 {
     margin: 0 0 10px;
-}
-
-footer {
-    background-color: #1a1a1a;
-    text-align: center;
-    padding: 10px;
-    margin-top: 20px;
-    font-size: 0.8em;
 }
