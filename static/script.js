@@ -4,7 +4,17 @@ function showToast(message, type = "info") {
 
     const toast = document.createElement("div");
     toast.className = `toast ${type}`;
-    toast.textContent = message;
+
+    // Add an icon to the toast
+    const icon = document.createElement("span");
+    icon.className = `toast-icon ${type}`;
+    toast.appendChild(icon);
+
+    // Add the message
+    const text = document.createElement("span");
+    text.className = "toast-message";
+    text.textContent = message;
+    toast.appendChild(text);
 
     toastContainer.appendChild(toast);
 
@@ -50,6 +60,7 @@ async function fetchMapData() {
         mapContainer.innerHTML = ''; // Clear existing elements
 
         data.celestial_bodies.forEach(body => {
+            // Create celestial body
             const bodyDiv = document.createElement('div');
             bodyDiv.classList.add('celestial-body');
             bodyDiv.classList.add(body.explored ? 'explored' : 'unexplored');

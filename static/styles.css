@@ -32,6 +32,28 @@ footer {
     font-size: 0.8em;
 }
 
+/* Starry Background */
+#background-animation {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 200%;
+    height: 200%;
+    background: url('/static/bg.webp') repeat;
+    background-size: cover;
+    z-index: -1;
+    animation: moveStars 60s linear infinite;
+}
+
+@keyframes moveStars {
+    from {
+        transform: translate(0, 0);
+    }
+    to {
+        transform: translate(-50%, -50%);
+    }
+}
+
 /* Universe Map Styling */
 #universe-map {
     position: relative;
@@ -51,10 +73,10 @@ footer {
     border-radius: 50%;
     text-align: center;
     line-height: 40px;
-    color: white;
     font-size: 0.8em;
     cursor: pointer;
     transition: transform 0.2s ease, background-color 0.2s ease;
+    animation: pulsate 2s infinite;
 }
 
 .celestial-body.explored {
@@ -71,18 +93,16 @@ footer {
     transform: scale(1.2);
 }
 
-.celestial-body.selected {
-    border: 2px solid #ffcc00;
-    box-shadow: 0 0 15px #ffcc00;
-}
-
-/* Connection Line Styles */
-.connection-line {
-    position: absolute;
-    height: 2px;
-    background-color: #fff;
-    transform-origin: top left;
-    z-index: -1;
+@keyframes pulsate {
+    0% {
+        box-shadow: 0 0 5px rgba(0, 255, 204, 0.8);
+    }
+    50% {
+        box-shadow: 0 0 15px rgba(0, 255, 204, 1);
+    }
+    100% {
+        box-shadow: 0 0 5px rgba(0, 255, 204, 0.8);
+    }
 }
 
 /* Alerts Styling */
@@ -94,13 +114,13 @@ footer {
 }
 
 .alert.info {
-    background-color: #d4edda;
-    color: #155724;
+    background-color: #2196f3;
+    color: #fff;
 }
 
 .alert.warning {
-    background-color: #f8d7da;
-    color: #721c24;
+    background-color: #ff9800;
+    color: #fff;
 }
 
 @keyframes fadeIn {
@@ -218,7 +238,7 @@ button.task-button.clicked {
     margin: 5px 0;
     border-radius: 5px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-    animation: fadeIn 3s, fadeOut 3s 5s;
+    animation: fadeIn 0.3s, fadeOut 0.3s 5s;
     opacity: 0;
 }
 
