@@ -15,6 +15,13 @@ def initialize_database():
 
     # Create tables if they don't exist
     cursor.execute("""
+    CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL
+    );
+    """)
+    cursor.execute("""
     CREATE TABLE IF NOT EXISTS resources (
         id INTEGER PRIMARY KEY,
         name TEXT UNIQUE NOT NULL,

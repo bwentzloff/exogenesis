@@ -1,113 +1,143 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, request, jsonify
 import sqlite3
-import threading
-import time
 
 tasks_blueprint = Blueprint("tasks", __name__)
 
 DB_PATH = "game_state.db"
-TICK_INTERVAL = 10
-
-TASKS_DATA = {
-    "Repair Comms Hub": {"costs": {"materials": 20}, "prerequisites": []},
-    "Upgrade Antennas": {"costs": {"materials": 50}, "prerequisites": ["Repair Comms Hub"]},
-    "Genetic Experiment": {"costs": {"data": 15}, "prerequisites": []},
-    "Organize Storage": {"costs": {"materials": 10}, "prerequisites": []},
-    "Send Signal": {"costs": {"energy": 10}, "prerequisites": []},
-    "Harvest Solar Energy": {"costs": {}, "prerequisites": [], "generates": {"energy": 20}},
-}
 
 def get_connection():
-    """Get a connection to the SQLite database."""
+    """Establish a connection to the SQLite database."""
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
 
-def process_tick():
-    """Process a game tick."""
-    while True:
-        time.sleep(TICK_INTERVAL)
-        conn = get_connection()
-        cursor = conn.cursor()
-
-        # Decrement ticks_remaining for tasks
-        cursor.execute("UPDATE tasks SET ticks_remaining = ticks_remaining - 1 WHERE ticks_remaining > 0")
-
-        # Remove completed tasks and apply effects
-        cursor.execute("SELECT * FROM tasks WHERE ticks_remaining <= 0")
-        completed_tasks = cursor.fetchall()
-        for task in completed_tasks:
-            if task["name"] == "Harvest Solar Energy":
-                cursor.execute("UPDATE resources SET amount = amount + 20 WHERE name = 'energy'")
-            cursor.execute("DELETE FROM tasks WHERE id = ?", (task["id"],))
-
-        # Add alerts for low resources
-        cursor.execute("SELECT name, amount FROM resources")
-        for row in cursor.fetchall():
-            if row["amount"] < 20:
-                alert_message = f"Warning: {row['name'].capitalize()} levels are critically low!"
-                cursor.execute("INSERT OR IGNORE INTO alerts (message) VALUES (?)", (alert_message,))
-
-        conn.commit()
-        conn.close()
-
-# Start the tick thread
-tick_thread = threading.Thread(target=process_tick, daemon=True)
-tick_thread.start()
-
-@tasks_blueprint.route("/api/assign_task", methods=["POST"])
+@tasks_blueprint.route("/assign_task", methods=["POST"])
 def assign_task():
     """Assign a task."""
     conn = get_connection()
     cursor = conn.cursor()
 
+    # Extract data from the request
     task_name = request.json.get("task")
     room = request.json.get("room")
     ticks_required = request.json.get("ticks_required", 1)
 
     if not task_name or not room:
+        conn.close()
         return jsonify({"error": "Task name and room are required."}), 400
 
-    if task_name not in TASKS_DATA:
-        return jsonify({"error": "Invalid task name."}), 400
+    # Deduct resources (example logic, customize as needed)
+    cursor.execute("SELECT amount FROM resources WHERE name = 'energy'")
+    energy = cursor.fetchone()["amount"]
+    if energy < 10:  # Example cost
+        conn.close()
+        return jsonify({"error": "Not enough energy to assign the task."}), 400
 
-    task_data = TASKS_DATA[task_name]
-    prerequisites = task_data["prerequisites"]
+    cursor.execute("UPDATE resources SET amount = amount - 10 WHERE name = 'energy'")
 
-    # Check prerequisites
-    for prereq in prerequisites:
-        cursor.execute("SELECT COUNT(*) FROM tasks WHERE name = ?", (prereq,))
-        if cursor.fetchone()[0] == 0:
-            return jsonify({"error": f"Prerequisite '{prereq}' not completed."}), 400
-
-    # Check resource costs
-    for resource, cost in task_data["costs"].items():
-        cursor.execute("SELECT amount FROM resources WHERE name = ?", (resource,))
-        current_amount = cursor.fetchone()
-        if not current_amount or current_amount["amount"] < cost:
-            return jsonify({"error": f"Not enough {resource} to start task."}), 400
-
-    # Deduct resources
-    for resource, cost in task_data["costs"].items():
-        cursor.execute("UPDATE resources SET amount = amount - ? WHERE name = ?", (cost, resource))
-
-    # Add task to database
-    cursor.execute(
-        "INSERT INTO tasks (name, room, ticks_remaining) VALUES (?, ?, ?)",
-        (task_name, room, ticks_required),
-    )
-
+    # Add the task to the tasks table
+    cursor.execute("""
+        INSERT INTO tasks (name, room, ticks_remaining)
+        VALUES (?, ?, ?)
+    """, (task_name, room, ticks_required))
     conn.commit()
     conn.close()
 
-    return jsonify({"message": "Task assigned successfully."}), 201
+    return jsonify({"message": f"Task '{task_name}' assigned to {room} for {ticks_required} ticks."}), 201
 
-@tasks_blueprint.route("/api/clear_alerts", methods=["POST"])
+@tasks_blueprint.route("/clear_alerts", methods=["POST"])
 def clear_alerts():
     """Clear all alerts."""
     conn = get_connection()
     cursor = conn.cursor()
+
     cursor.execute("DELETE FROM alerts")
     conn.commit()
     conn.close()
-    return jsonify({"message": "All alerts cleared."}), 200
+
+    return jsonify({"message": "All alerts cleared!"}), 200
+
+@tasks_blueprint.route("/tasks", methods=["GET"])
+def get_tasks():
+    """Get all active tasks."""
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT id, name, room, ticks_remaining FROM tasks")
+    tasks = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+
+    return jsonify({"tasks": tasks})
+
+@tasks_blueprint.route("/update_ticks", methods=["POST"])
+def update_ticks():
+    """Update task ticks (process a game tick)."""
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        UPDATE tasks
+        SET ticks_remaining = ticks_remaining - 1
+        WHERE ticks_remaining > 0
+    """)
+
+    cursor.execute("""
+        DELETE FROM tasks
+        WHERE ticks_remaining <= 0
+    """)
+
+    conn.commit()
+    conn.close()
+
+    return jsonify({"message": "Task ticks updated."}), 200
+
+@tasks_blueprint.route("/initialize_tasks", methods=["POST"])
+def initialize_tasks():
+    """Initialize or reset tasks in the database."""
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    # Clear existing tasks
+    cursor.execute("DELETE FROM tasks")
+
+    # Add default tasks (example tasks, customize as needed)
+    default_tasks = [
+        {"name": "Repair Comms Hub", "room": "Control Room", "ticks_remaining": 5},
+        {"name": "Organize Storage", "room": "Storage Room", "ticks_remaining": 3},
+    ]
+    for task in default_tasks:
+        cursor.execute("""
+            INSERT INTO tasks (name, room, ticks_remaining)
+            VALUES (?, ?, ?)
+        """, (task["name"], task["room"], task["ticks_remaining"]))
+
+    conn.commit()
+    conn.close()
+
+    return jsonify({"message": "Tasks initialized."}), 200
+
+@tasks_blueprint.route("/state", methods=["GET"])
+def get_game_state():
+    """Retrieve the current game state."""
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    # Fetch resources
+    cursor.execute("SELECT name, amount FROM resources")
+    resources = {row["name"]: row["amount"] for row in cursor.fetchall()}
+
+    # Fetch tasks
+    cursor.execute("SELECT name, room, ticks_remaining FROM tasks")
+    tasks = [dict(row) for row in cursor.fetchall()]
+
+    # Fetch alerts
+    cursor.execute("SELECT message FROM alerts")
+    alerts = [row["message"] for row in cursor.fetchall()]
+
+    conn.close()
+
+    return jsonify({
+        "resources": resources,
+        "tasks": tasks,
+        "alerts": alerts
+    })
